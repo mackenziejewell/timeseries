@@ -1,5 +1,5 @@
-# plot_simply
-Functions for quicker use of common plotting tools, especially involving geographic plots
+# timeseries
+Functions for timeseries analysis
 
 ### To build matching environment:
 
