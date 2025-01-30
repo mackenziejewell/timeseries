@@ -104,12 +104,12 @@ OUTPUT:
 - running_mean: (M x 1) array of running mean values
 
 Latest recorded update:
-01-29-2025
+01-30-2025
     """
 
-    # copy data
-    variable = np.copy(series)
-    running_mean = np.copy(variable)
+    # copy data, retain xarray type if ds
+    variable = series.copy()
+    running_mean = variable.copy()
 
     # end values are nans
     if center:
@@ -134,3 +134,44 @@ Latest recorded update:
     return running_mean
 
     
+
+
+
+def dates_to_sequences(dates, dt_max = 1 * units('day')):
+        
+    """Convert list of dates to dictionary of consecutive date sequences.
+
+INPUT: 
+- dates: (M x 1) list of all dates to consider
+- dt_max: maximum time gap to allow for sequence continuation
+
+OUTPUT:
+- seqs: dictionary of sequences, with keys as sequence number and values as list of dates in sequence
+
+Latest recorded update:
+01-30-2025
+    """
+
+    # start dict to store sequences
+    seqs = {}
+        
+    if len(dates) > 0:
+        
+        seqs[0] = [dates[0]]
+
+        for ii in range(1, len(dates)):
+
+            # determine index and last date of last sequence
+            last_seq = list(seqs.keys())[-1]
+            last_date = seqs[last_seq][-1]
+
+            # determine whether sequences continues
+            # or new one must be defined
+            DT = (dates[ii] - last_date).total_seconds() * units('s')
+
+            if DT <= dt_max:
+                seqs[last_seq].append(dates[ii])
+            else:
+                seqs[last_seq+1] = [dates[ii]]
+
+    return seqs
