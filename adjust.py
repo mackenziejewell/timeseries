@@ -9,11 +9,50 @@ import numpy.ma as ma
 from datetime import datetime, timedelta
 
 from metpy.units import units
-
+from scipy.signal import butter, filtfilt
 
 
 # FUNCTIONS:
 #---------------------------------------------------------------------
+def butter_lowpass_filter(t, y, cutoff_t, order = 5):
+    
+    """
+    Digital butterworth filter
+    
+    INPUT:
+    t: time (in seconds)
+    y: initial values (cannot contain nans currently!)
+    cutoff_t: cutoff period (in seconds)
+    order: order of butterworth filter (default: 5)
+    
+    OUTPUT:
+    yf : filtered timeseries
+    """
+    # resource 1:
+    # https://stackoverflow.com/questions/63320705/what-are-order-and-critical-frequency-when-creating-a-low-pass-filter-using
+    # resource 2:
+    # https://medium.com/analytics-vidhya/how-to-filter-noise-with-a-low-pass-filter-python-885223e5e9b7
+
+    
+    fs = 1/np.diff(t)[0]     # sample rate, Hz
+    T = t[-1]                # Sample Period
+    n = int(T * fs)          # total number of samples
+    cutoff_f = 1/(cutoff_t)  # desired cutoff frequency of the filter (Hz)
+    nyq = 0.5 * fs           # Nyquist Frequency
+
+    # normal_cutoff = cutoff / nyq (only use this for didital filters if fs is not specified)
+    # Get the filter coefficients 
+    b, a = butter(order, cutoff_f, btype='low', fs = fs, analog=False)
+    yf = filtfilt(b, a, y)
+    
+    # outputting with sos is recommended to reduce "numerical error"
+    # but this seems to shift all the filtered data off form the true times?
+    # from scipy.signal import sosfreqz, sosfilt
+    # sos = butter(order, cutoff, btype='low', fs = fs, analog=False, output='sos')
+    # y = sosfilt(sos, data)
+    return yf
+
+
 def linear_interpolate(desired_times, og_times, og_values):
     
     """Function to linearly interpolate values to desired times.
@@ -48,7 +87,7 @@ Latest recorded update:
             match_index = np.where(og_times == time)[0]
 
             # if exact match, extract value
-            if len(match_index) > 0:
+            if (len(match_index) > 0) & np.isfinite(og_values[match_index]):
                 value = og_values[match_index]
                 dt_sec = 0
 
@@ -57,7 +96,6 @@ Latest recorded update:
                 value = None
 
                 # find non-nan times before and after values
-
                 before_indices = np.where(og_times < time)[0]
                 left_index = before_indices[np.isfinite(og_values)[before_indices]][-1]
 
