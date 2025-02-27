@@ -5,6 +5,7 @@ import xarray as xr
 
 import numpy as np
 import numpy.ma as ma
+import pandas as pd
 
 from datetime import datetime, timedelta
 
@@ -14,43 +15,29 @@ from scipy.signal import butter, filtfilt
 
 # FUNCTIONS:
 #---------------------------------------------------------------------
-def butter_lowpass_filter(t, y, cutoff_t, order = 5):
+def seconds_elapsed(time, t0 = None):
     
-    """
-    Digital butterworth filter
-    
+    """ Convert datetime array to seconds elapsed from specified start time
     INPUT:
-    t: time (in seconds)
-    y: initial values (cannot contain nans currently!)
-    cutoff_t: cutoff period (in seconds)
-    order: order of butterworth filter (default: 5)
-    
+    - time: (M x 1) array of datetimes
+    - t0: datetime object of start time (if None, use first time in array)
     OUTPUT:
-    yf : filtered timeseries
+    - t: (M x 1) array of seconds elapsed from starttime
+    Latest recorded update:
+    02-27-2025
     """
-    # resource 1:
-    # https://stackoverflow.com/questions/63320705/what-are-order-and-critical-frequency-when-creating-a-low-pass-filter-using
-    # resource 2:
-    # https://medium.com/analytics-vidhya/how-to-filter-noise-with-a-low-pass-filter-python-885223e5e9b7
-
     
-    fs = 1/np.diff(t)[0]     # sample rate, Hz
-    T = t[-1]                # Sample Period
-    n = int(T * fs)          # total number of samples
-    cutoff_f = 1/(cutoff_t)  # desired cutoff frequency of the filter (Hz)
-    nyq = 0.5 * fs           # Nyquist Frequency
-
-    # normal_cutoff = cutoff / nyq (only use this for didital filters if fs is not specified)
-    # Get the filter coefficients 
-    b, a = butter(order, cutoff_f, btype='low', fs = fs, analog=False)
-    yf = filtfilt(b, a, y)
+    time = pd.to_datetime(time)
     
-    # outputting with sos is recommended to reduce "numerical error"
-    # but this seems to shift all the filtered data off form the true times?
-    # from scipy.signal import sosfreqz, sosfilt
-    # sos = butter(order, cutoff, btype='low', fs = fs, analog=False, output='sos')
-    # y = sosfilt(sos, data)
-    return yf
+    if t0 == None:
+        t0 = time[0]
+
+    t = (time - t0) / np.timedelta64(1,'s')
+    
+    return t
+
+
+
 
 
 def linear_interpolate(desired_times, og_times, og_values):
