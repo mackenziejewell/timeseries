@@ -56,8 +56,6 @@ def flag_accelerations(times, u, v, thresh = 0.0002 * units('m/s2')):
     return accel, u_filter, v_filter
 
 
-
-
 def sigma3filter(times, og_series, L=5, N=1):
     
     """Filter data more than 3 sigma.
