@@ -20,6 +20,37 @@ from metpy.units import units
 from timeseries.adjust import seconds_elapsed
 from timeseries.filter import medianfilter
 
+def flag_timechanges(times, values, thresh = 0.0002 * units('m/s')):
+    
+    """Flag changes in values over time above threshold.
+
+    INPUT:
+    - times: (M x 1) array of times
+    - values: (M x 1) array of values (include units)
+    - thresh: change threshold (include units, default = 0.0002 m/s)
+
+    OUTPUT:
+    - changes: (M x 1) array of change-over-time values
+    - val_filter: (M x 1) array of u-component values with flagged values set to nan
+
+    Latest recorded update:
+    02-27-2025
+    """
+
+    val_filter = np.copy(values)
+    
+    # convert time differences to seconds
+    dt = (np.diff(times).astype('timedelta64[s]') / np.timedelta64(1,'s')) * units('s')
+    dv = np.diff(values)
+
+    change_mag = abs(dv / dt)
+    changes = np.append(np.array([0]), change_mag.magnitude) * change_mag.units
+    
+    val_filter[1:][change_mag > thresh] = np.nan
+
+    return changes, val_filter
+    
+
 def flag_accelerations(times, u, v, thresh = 0.0002 * units('m/s2')):
     
     """Flag accelerations above threshold.
