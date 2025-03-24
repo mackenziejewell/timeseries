@@ -38,23 +38,22 @@ def seconds_elapsed(time, t0 = None):
 
 
 
-
-
-def linear_interpolate(desired_times, og_times, og_values):
+def linear_interpolate(desired_times, og_times, og_values, max_dt = 1 * units('day')):
     
-    """Function to linearly interpolate values to desired times.
+    """Function to linearly interpolate values to desired times. For now, will not interpolate past nan bounds.
 
 INPUT: 
 - desired_times: (M x 1) array of datetimes to interpolate to
 - og_times: (M x 1) array of original datetimes
 - og_values: (M x 1) array of original values
+- max_dt: maximum allowed time gap for interpolation (otherwise return nan)
 
 OUTPUT:
 - interp_values: (M x 1) array of interpolated values
 - dt_values: (M x 1) array of time differences used in interpolation
 
 Latest recorded update:
-01-29-2025
+03-22-2025
     """
 
     # arrays to store interp values
@@ -62,10 +61,14 @@ Latest recorded update:
     interp_values = np.array([])
     dt_values = np.array([])
 
+    # find first and last non-nan times
+    first_nn = og_times[np.where(np.isfinite(og_values))[0][0]]
+    last_nn = og_times[np.where(np.isfinite(og_values))[0][-1]]
+
     for time in desired_times:
         
         # if time is outside of range of data, just add nans
-        if (time < og_times[0]) or (time > og_times[-1]):
+        if (time < first_nn) or (time > last_nn):
             value = np.nan
             dt_sec = np.nan
 
@@ -107,6 +110,11 @@ Latest recorded update:
         interp_values = np.append(interp_values, value)
         dt_values = np.append(dt_values, dt_sec)
         
+    # convert max allowed dt to seconds
+    max_dt_sec = max_dt.to('s').magnitude
+    # flag interp values with dt > max_dt_sec
+    interp_values[dt_values > max_dt_sec] = np.nan
+    
     return interp_values, dt_values
 
 
@@ -159,8 +167,6 @@ Latest recorded update:
     return running_mean
 
     
-
-
 
 def dates_to_sequences(dates, dt_max = 1 * units('day')):
         
