@@ -71,7 +71,7 @@ def variance_ellipses(xp, yp):
 
     # principal angle theta (without convention adjustment)
     theta = (0.5 * np.arctan(2*sxy/(sxx-syy)))
-
+    print(theta)
     # convention to find 1st principal angle theta_m
     # from theta found from maximization
     if sxx - syy < 0:
@@ -120,8 +120,6 @@ def variance_ellipses(xp, yp):
     thetas = np.linspace(0, 2*np.pi, 100)
     xe = a * np.cos(thetas)*np.cos(theta_m) - b * np.sin(thetas)*np.sin(theta_m)
     ye = a * np.cos(thetas)*np.sin(theta_m) + b * np.sin(thetas)*np.cos(theta_m)
-
-
 
     pca = {}
     pca['sxx'] = sxx
