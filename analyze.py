@@ -22,6 +22,7 @@ def variance_ellipses(xp, yp):
     Resources:
     https://www.researchgate.net/profile/Curtis-Mobley-2/publication/44529688_Principal_component_analysis_in_meteorology_and_oceanography_by_Rudolph_W_Preisendorfer_posthumously_compiled_and_edited_by_Curtis_D_Mobley/links/541875e90cf2218008bf3da1/Principal-component-analysis-in-meteorology-and-oceanography-by-Rudolph-W-Preisendorfer-posthumously-compiled-and-edited-by-Curtis-D-Mobley.pdf 
     https://jmlilly.net/course/pages/thevarianceellipse.html#12 
+    https://www.mygeodesy.id.au/documents/Chapter%208.pdf
 
     INPUT:
     - xp: (M x 1) array of x-values
@@ -71,7 +72,8 @@ def variance_ellipses(xp, yp):
 
     # principal angle theta (without convention adjustment)
     theta = (0.5 * np.arctan(2*sxy/(sxx-syy)))
-    print(theta)
+    
+
     # convention to find 1st principal angle theta_m
     # from theta found from maximization
     if sxx - syy < 0:
