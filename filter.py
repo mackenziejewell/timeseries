@@ -163,6 +163,11 @@ def medianfilter(times, og_series, L=5, min_frac = 0.5):
             if np.sum(np.isfinite(current_vals)) >= min_frac * len(current_vals):
                 median_series[ii] = np.nanmedian(current_vals)
 
+            # otherwise return nan?
+            else:
+                median_series[ii] = np.nan
+
+
 
     # either fun over window specified as # of points
     elif type(L) == int:
@@ -184,5 +189,10 @@ def medianfilter(times, og_series, L=5, min_frac = 0.5):
             # find median, only if at least min_frac of values are non-nan
             if np.sum(np.isfinite(current_vals)) >= min_frac * len(current_vals):
                 median_series[ii] = np.nanmedian(current_vals)
+
+            # otherwise return nan?
+            else:
+                median_series[ii] = np.nan
+
 
     return median_series

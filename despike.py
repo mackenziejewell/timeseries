@@ -87,7 +87,7 @@ def flag_accelerations(times, u, v, thresh = 0.0002 * units('m/s2')):
     return accel, u_filter, v_filter
 
 
-def sigma3filter(times, og_series, L=5, N=1):
+def sigma3filter(times, og_series, L=5, N=1, min_frac = 0.5):
     
     """Filter data more than 3 sigma.
 
@@ -96,6 +96,7 @@ def sigma3filter(times, og_series, L=5, N=1):
     - og_series: (M x 1) array of original values
     - L: length of running median window (odd integer of # of points, or timedelta object)
     - N: number of iterations to apply filter
+    - min_frac: minimum fraction of non-nan values required to calculate median, otherwise return nan
 
     OUTPUT:
     - filter_series: (M x 1) array of filtered values (outliers replaced with nan)
@@ -109,8 +110,8 @@ def sigma3filter(times, og_series, L=5, N=1):
     
     for ii in range(N):
 
-        # apply an N-point median filter
-        medians = medianfilter(times, filter_series, L=L, min_frac = 0.5)
+        # apply an L-point median filter
+        medians = medianfilter(times, filter_series, L=L, min_frac = min_frac)
 
         # find residual of timeseries
         residual = medians - filter_series
@@ -119,6 +120,8 @@ def sigma3filter(times, og_series, L=5, N=1):
         mu = np.nanmean(residual)
         sigma = np.nanstd(residual)
         flags = np.abs(residual - mu) >= 3 * sigma
+
+        filter_series[np.isnan(medians)] = np.nan
 
         filter_series[flags] = np.nan
     
