@@ -121,7 +121,7 @@ Latest recorded update:
     return u_fixed, v_fixed
 
 
-def running_mean(series, length = 3, center = False, address_nans = False):
+def running_mean(series, length = 3, center = False, min_frac = 0.5):
     
     """Function to calculate running mean of a series (assumes evenly spaced data).
 
@@ -130,14 +130,15 @@ INPUT:
 - length: length of running mean window 
     (either one-sided (window=length+1), or one side of two-sided if center=True (window=2*length + 1))
 - center: if True, calculate two-sided running mean
-- address_nans: if True, address nans in data by taking mean of non-nan values in window
-    (else carry any nans to final data)
+- min_frac: minimum fraction of non-nan values required to calculate median, 
+    otherwise return nan (default: 0.5)
+
 
 OUTPUT:
 - running_mean: (M x 1) array of running mean values
 
 Latest recorded update:
-01-30-2025
+11-21-2025
     """
 
     # copy data, retain xarray type if ds
@@ -150,23 +151,29 @@ Latest recorded update:
         running_mean[:length] = np.nan
         running_mean[-length:] = np.nan
         for ii in range(length, len(running_mean)-length):
-            if address_nans:
-                running_mean[ii] = np.nanmean(variable[ii-length:ii+length+1])
+
+            current_vals = variable[ii-length:ii+length+1]
+
+            if np.sum(np.isfinite(current_vals)) >= min_frac * len(current_vals):
+                running_mean[ii] = np.nanmean(current_vals)
             else:
-                running_mean[ii] = np.sum(variable[ii-length:ii+length+1]) / len(variable[ii-length:ii+length+1])
+                running_mean[ii] = np.nan
         
     else:
         running_mean[:length] = np.nan
+
         for ii in range(length, len(running_mean)):
-            if address_nans:
-                running_mean[ii] = np.nanmean(variable[ii-length:ii+1])
+
+            current_vals = variable[ii-length:ii+1]
+
+            if np.sum(np.isfinite(current_vals)) >= min_frac * len(current_vals):
+                running_mean[ii] = np.nanmean(current_vals)
             else:
-                running_mean[ii] = np.sum(variable[ii-length:ii+1]) / len(variable[ii-length:ii+1])
+                running_mean[ii] = np.nan
         
         
     return running_mean
 
-    
 
 def dates_to_sequences(dates, dt_max = 1 * units('day')):
         

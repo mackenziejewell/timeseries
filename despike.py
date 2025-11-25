@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from metpy.units import units
 
 from timeseries.adjust import seconds_elapsed
-from timeseries.filter import medianfilter
+from timeseries.filter import medianfilter, meanfilter
 
 def flag_timechanges(times, values, thresh = 0.0002 * units('m/s')):
     
@@ -96,13 +96,14 @@ def sigma3filter(times, og_series, L=5, N=1, min_frac = 0.5):
     - og_series: (M x 1) array of original values
     - L: length of running median window (odd integer of # of points, or timedelta object)
     - N: number of iterations to apply filter
-    - min_frac: minimum fraction of non-nan values required to calculate median, otherwise return nan
+    - min_frac: minimum fraction of non-nan values required to calculate median, 
+    otherwise return nan (default: 0.5)
 
     OUTPUT:
     - filter_series: (M x 1) array of filtered values (outliers replaced with nan)
 
     Latest recorded update:
-    02-27-2025
+    11-21-2025
 
     """
     
@@ -113,16 +114,20 @@ def sigma3filter(times, og_series, L=5, N=1, min_frac = 0.5):
         # apply an L-point median filter
         medians = medianfilter(times, filter_series, L=L, min_frac = min_frac)
 
-        # find residual of timeseries
-        residual = medians - filter_series
+        # find residual of timeseries, and MAD (median absolute deviation)
+        residual = abs(medians - filter_series)
+       
 
         # find mean and standard deviation of residual timeseries
         mu = np.nanmean(residual)
         sigma = np.nanstd(residual)
         flags = np.abs(residual - mu) >= 3 * sigma
 
-        filter_series[np.isnan(medians)] = np.nan
+        # sigma = np.nanstd(residual)
+        # flags = residual >= 3 * sigma
 
+        filter_series[np.isnan(medians)] = np.nan
         filter_series[flags] = np.nan
+
     
     return filter_series
