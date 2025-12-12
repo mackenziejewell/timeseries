@@ -76,6 +76,12 @@ Latest recorded update:
             # look first for exact match
             match_index = np.where(og_times == time)[0]
 
+            # used this to debug multiple matches
+            if (len(match_index) > 1):
+                print(len(match_index))
+                print(match_index)
+                print(og_values[match_index])
+
             # if exact match, extract value
             if (len(match_index) > 0) & np.isfinite(og_values[match_index]):
                 value = og_values[match_index]

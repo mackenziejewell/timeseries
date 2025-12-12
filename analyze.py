@@ -12,10 +12,12 @@ from datetime import datetime, timedelta
 from metpy.units import units
 from scipy.signal import butter, filtfilt
 
+from scipy.stats import t
 
 # FUNCTIONS:
 #---------------------------------------------------------------------
 def variance_ellipses(xp, yp):
+
     
     """ Calculate principal axes and variances of 2D timeseries data
 
@@ -136,3 +138,131 @@ def variance_ellipses(xp, yp):
     pca['ye'] = ye
 
     return pca
+
+
+def linear_regress(xi, yi, alpha = 0.05, quiet = True):
+    """
+    Perform a simple linear regression with full statistical outputs, including
+    slope, intercept, standard errors, RMSE, Pearson correlation, p-value, 
+    and functions for prediction intervals and predicted values.
+
+    This implementation is based on USGS calibration manuals:
+    https://pubs.usgs.gov/tm/04/a03/tm4a3.pdf
+
+    Parameters
+    ----------
+    xi : array-like
+        Independent variable data
+    yi : array-like
+        Dependent variable data
+    alpha : float, optional
+        Significance level for confidence/prediction intervals (default 0.05 for 95% CI).
+    quiet : bool, optional
+        If False, prints regression info (default True).
+
+    Returns
+    -------
+    reg : dict
+        Dictionary containing regression results:
+        - 'slope' : float, estimated slope (β1)
+        - 'intercept' : float, estimated intercept (β0)
+        - 'SE_slope' : float, standard error of slope
+        - 'SE_intercept' : float, standard error of intercept
+        - 'RMSE' : float, residual standard error (σ̂)
+        - 'R' : float, Pearson correlation coefficient
+        - 'p' : float, two-sided p-value for slope ≠ 0
+        - 'x_line' : np.ndarray, x values for plotting regression line
+        - 'y_line' : np.ndarray, predicted y values for x_line
+        - 'y_line_CI' : np.ndarray, confidence interval for regression line
+        - 'y_line_CI_upper' : np.ndarray, upper bound of CI
+        - 'y_line_CI_lower' : np.ndarray, lower bound of CI
+        - 'SE_predict' : function, SE of predicted y at x0
+        - 'CI_predict' : function, confidence interval of predicted y at x0
+        - 'predict' : function, predicted y at given x0
+        - 'CI' : dict, containing 'dof', 'alpha', 't_crit' for reference
+
+    Notes
+    -----
+    - SE_predict(x0) returns the standard error of prediction at a specific x0.
+    - CI_predict(x0) returns the t-critical * SE_predict(x0), i.e., the width of
+      the confidence/prediction interval around the regression line at x0.
+    """
+
+    # ---- means of calibration points ----
+    xbar = np.nanmean(xi) # independent
+    ybar = np.nanmean(yi) # dependent
+
+    n = len(xi)  # number of calibration points
+    dof = n - 2  # degrees of freedom for simple linear regression
+    
+    Syy = np.sum((yi - ybar)**2)          # sum of squares of y
+    Sxx = np.sum((xi - xbar)**2)          # sum of squares of x
+    Sxy = np.sum((xi - xbar)*(yi - ybar)) # sum of x-y cross-product
+    
+    beta1 = Sxy / Sxx            # slope estimate
+    beta0 = ybar - beta1 * xbar  # intercept estimate
+
+    # predicted y-values 
+    yi_hat = beta0 + beta1 * xi
+    residuals = (yi - yi_hat)
+    MSE = np.sum(residuals**2) / dof  # Mean square error (MSE), "sigma" ** 2
+    RMSE = np.sqrt(MSE)               # standard error of regression (RMSE), "sigma"
+    
+    # other ways to calc
+    # s2 = (Syy - beta1*Sxy)/(n-2) # mean square error (MSE)
+    # s = np.sqrt(s2)              # standard error or the regression
+
+    # ----- standard errors of slope, intercept -----
+    SE_beta1 = RMSE / np.sqrt(Sxx)              
+    SE_beta0 = RMSE * np.sqrt(1/n + xbar**2/Sxx)
+
+    # ----- confidence interval -----
+    r = Sxy / np.sqrt(Sxx*Syy)
+
+    # ----- student t test t-val -----
+    t_crit = t.ppf(1 - alpha/2, dof)
+
+    # two-sided t-test that slope is non-zero
+    p_value = 2 * (1 - t.cdf(abs(beta1 / SE_beta1), df=dof))
+
+    if not quiet:
+        print(f'{(1-alpha)*100}% confidence, {dof} dof')
+        print("Critical t-value:", t_crit)
+        
+    reg = {}
+
+    # ------- functions to calculate ... -------
+    # standard error of prediction
+    reg['SE_predict'] = lambda x0 : RMSE * np.sqrt(1 + 1/n + ((x0 - xbar)**2) / Sxx)
+    reg['CI_predict'] = lambda x0 : t_crit * reg['SE_predict'](x0)
+    
+    reg['slope'] = beta1
+    reg['intercept'] = beta0
+    reg['R'] = r                   # Pearson correlation coefficient between xi and yi
+    reg['SE_slope'] = SE_beta1
+    reg['SE_intercept'] = SE_beta0
+    reg['RMSE'] = RMSE
+    reg['p'] = p_value
+    
+    # predicted fit line values
+    xi_dense = np.linspace(np.nanmin(xi), np.nanmax(xi), 100) 
+    reg['x_line'] = xi_dense
+    reg['y_line'] = beta0 + beta1 * xi_dense
+    reg['y_line_CI'] = reg['CI_predict'](xi_dense)
+    reg['y_line_CI_upper'] = reg['y_line'] + reg['y_line_CI']
+    reg['y_line_CI_lower'] = reg['y_line'] - reg['y_line_CI']
+    
+    # reg['x_line'] = np.sort(xi)
+    # reg['y_line'] = beta0 + beta1 * np.sort(xi)
+    # reg['y_line_CI'] = reg['CI_predict'](np.sort(xi))
+
+    reg['CI'] = {}
+    reg['CI']['dof'] = dof
+    reg['CI']['alpha'] = alpha
+    reg['CI']['t_crit'] = t_crit
+
+    # yhat_0 (regression-predicted y vals for each x0)
+    reg['predict'] = lambda x0 : beta0 + beta1 * x0
+
+    return reg
+        
