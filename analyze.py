@@ -152,34 +152,40 @@ def linear_regress(xi, yi, alpha = 0.05, quiet = True):
     Parameters
     ----------
     xi : array-like
-        Independent variable data
+        Independent variable samples.
     yi : array-like
-        Dependent variable data
+        Dependent variable samples.
     alpha : float, optional
-        Significance level for confidence/prediction intervals (default 0.05 for 95% CI).
+        Significance level for prediction intervals (default 0.05 for 95%).
     quiet : bool, optional
-        If False, prints regression info (default True).
+        If False, prints basic regression info (default True).
 
     Returns
     -------
     reg : dict
-        Dictionary containing regression results:
-        - 'slope' : float, estimated slope (β1)
-        - 'intercept' : float, estimated intercept (β0)
-        - 'SE_slope' : float, standard error of slope
-        - 'SE_intercept' : float, standard error of intercept
-        - 'RMSE' : float, residual standard error (σ̂)
-        - 'R' : float, Pearson correlation coefficient
-        - 'p' : float, two-sided p-value for slope ≠ 0
-        - 'x_line' : np.ndarray, x values for plotting regression line
-        - 'y_line' : np.ndarray, predicted y values for x_line
-        - 'y_line_CI' : np.ndarray, confidence interval for regression line
-        - 'y_line_CI_upper' : np.ndarray, upper bound of CI
-        - 'y_line_CI_lower' : np.ndarray, lower bound of CI
-        - 'SE_predict' : function, SE of predicted y at x0
-        - 'CI_predict' : function, confidence interval of predicted y at x0
-        - 'predict' : function, predicted y at given x0
-        - 'CI' : dict, containing 'dof', 'alpha', 't_crit' for reference
+        Regression results and utility functions:
+        
+        Coefficients and statistics:
+        - 'slope', 'intercept'
+        - 'SE_slope', 'SE_intercept'
+        - 'RMSE' : residual standard error
+        - 'R' : Pearson correlation
+        - 'p' : two-sided p-value for slope ≠ 0
+        - 'Sxx', 'Syy', 'Sxy', 'xbar', 'ybar', 'n'
+
+        Prediction helpers:
+        - 'predict'(x0) : predicted y
+        - 'SE_predict'(x0) : standard error of prediction
+        - 'CI_predict'(x0) : half-width of prediction interval
+
+        Plotting arrays:
+        - 'x_line', 'y_line'
+        - 'y_line_CI', 'y_line_CI_upper', 'y_line_CI_lower'
+
+        Interval parameters:
+        - 'dof' : degrees of freedom
+        - 'CI_alpha' : alpha used
+        - 'CI_t_crit' : t critical value
 
     Notes
     -----
@@ -195,9 +201,9 @@ def linear_regress(xi, yi, alpha = 0.05, quiet = True):
     n = len(xi)  # number of calibration points
     dof = n - 2  # degrees of freedom for simple linear regression
     
-    Syy = np.sum((yi - ybar)**2)          # sum of squares of y
-    Sxx = np.sum((xi - xbar)**2)          # sum of squares of x
-    Sxy = np.sum((xi - xbar)*(yi - ybar)) # sum of x-y cross-product
+    Syy = np.nansum((yi - ybar)**2)          # sum of squares of y
+    Sxx = np.nansum((xi - xbar)**2)          # sum of squares of x
+    Sxy = np.nansum((xi - xbar)*(yi - ybar)) # sum of x-y cross-product
     
     beta1 = Sxy / Sxx            # slope estimate
     beta0 = ybar - beta1 * xbar  # intercept estimate
@@ -205,7 +211,7 @@ def linear_regress(xi, yi, alpha = 0.05, quiet = True):
     # predicted y-values 
     yi_hat = beta0 + beta1 * xi
     residuals = (yi - yi_hat)
-    MSE = np.sum(residuals**2) / dof  # Mean square error (MSE), "sigma" ** 2
+    MSE = np.nansum(residuals**2) / dof  # Mean square error (MSE), "sigma" ** 2
     RMSE = np.sqrt(MSE)               # standard error of regression (RMSE), "sigma"
     
     # other ways to calc
@@ -236,6 +242,12 @@ def linear_regress(xi, yi, alpha = 0.05, quiet = True):
     reg['SE_predict'] = lambda x0 : RMSE * np.sqrt(1 + 1/n + ((x0 - xbar)**2) / Sxx)
     reg['CI_predict'] = lambda x0 : t_crit * reg['SE_predict'](x0)
     
+    reg['xbar'] = xbar
+    reg['ybar'] = ybar
+    reg['Sxx'] = Sxx
+    reg['Syy'] = Syy
+    reg['Sxy'] = Sxy
+    reg['n'] = n
     reg['slope'] = beta1
     reg['intercept'] = beta0
     reg['R'] = r                   # Pearson correlation coefficient between xi and yi
@@ -256,10 +268,9 @@ def linear_regress(xi, yi, alpha = 0.05, quiet = True):
     # reg['y_line'] = beta0 + beta1 * np.sort(xi)
     # reg['y_line_CI'] = reg['CI_predict'](np.sort(xi))
 
-    reg['CI'] = {}
-    reg['CI']['dof'] = dof
-    reg['CI']['alpha'] = alpha
-    reg['CI']['t_crit'] = t_crit
+    reg['dof'] = dof
+    reg['CI_alpha'] = alpha
+    reg['CI_t_crit'] = t_crit
 
     # yhat_0 (regression-predicted y vals for each x0)
     reg['predict'] = lambda x0 : beta0 + beta1 * x0
