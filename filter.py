@@ -121,8 +121,6 @@ def loess(y,t,tls,tau):
     return yls, flag
 
 
-
-
 def medianfilter(times, og_series, L=5, min_frac = 0.5):
 
     """N-point median pass filter of time series.

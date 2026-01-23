@@ -37,7 +37,6 @@ def seconds_elapsed(time, t0 = None):
     return t
 
 
-
 def linear_interpolate(desired_times, og_times, og_values, max_dt = 1 * units('day')):
     
     """Function to linearly interpolate values to desired times. For now, will not interpolate past nan bounds.
@@ -83,9 +82,14 @@ Latest recorded update:
                 print(og_values[match_index])
 
             # if exact match, extract value
-            if (len(match_index) > 0) & np.isfinite(og_values[match_index]):
-                value = og_values[match_index]
-                dt_sec = 0
+            elif (len(match_index) == 1):
+                if np.isfinite(og_values[match_index]):
+                    value = og_values[match_index]
+                    dt_sec = 0
+                else:
+                    value = np.nan
+                    dt_sec = np.nan
+                    print('transferred nan value over... decide how want to handle this case?????')
 
             # otherwise, interp
             else:
