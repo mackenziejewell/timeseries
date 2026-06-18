@@ -131,7 +131,7 @@ Latest recorded update:
     return u_fixed, v_fixed
 
 
-def running_mean(series, length = 3, center = False, min_frac = 0.5):
+def running_mean(series, length = 3, center = False, min_frac = 0.5, use_median = False):
     
     """Function to calculate running mean of a series (assumes evenly spaced data).
 
@@ -142,6 +142,9 @@ INPUT:
 - center: if True, calculate two-sided running mean
 - min_frac: minimum fraction of non-nan values required to calculate median, 
     otherwise return nan (default: 0.5)
+ - min_frac: minimum fraction of non-nan values required to calculate median, 
+    otherwise return nan (default: 0.5)
+ - use_median: if True, use median instead of mean (default: False)
 
 
 OUTPUT:
@@ -165,7 +168,10 @@ Latest recorded update:
             current_vals = variable[ii-length:ii+length+1]
 
             if np.sum(np.isfinite(current_vals)) >= min_frac * len(current_vals):
-                running_mean[ii] = np.nanmean(current_vals)
+                if use_median:
+                    running_mean[ii] = np.nanmedian(current_vals)
+                else:
+                    running_mean[ii] = np.nanmean(current_vals)
             else:
                 running_mean[ii] = np.nan
         
@@ -177,7 +183,10 @@ Latest recorded update:
             current_vals = variable[ii-length:ii+1]
 
             if np.sum(np.isfinite(current_vals)) >= min_frac * len(current_vals):
-                running_mean[ii] = np.nanmean(current_vals)
+                if use_median:
+                    running_mean[ii] = np.nanmedian(current_vals)
+                else:
+                    running_mean[ii] = np.nanmean(current_vals)
             else:
                 running_mean[ii] = np.nan
         

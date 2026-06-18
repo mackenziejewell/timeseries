@@ -87,12 +87,12 @@ def flag_accelerations(times, u, v, thresh = 0.0002 * units('m/s2')):
     return accel, u_filter, v_filter
 
 
-def sigma3filter(times, og_series, L=5, N=1, min_frac = 0.5):
+def sigma3filter(x, og_series, L=5, N=1, min_frac = 0.5):
     
     """Filter data more than 3 sigma.
 
     INPUT:
-    - times: (M x 1) array of times
+    - x: (M x 1) array of coordinate values, can be timeseries
     - og_series: (M x 1) array of original values
     - L: length of running median window (odd integer of # of points, or timedelta object)
     - N: number of iterations to apply filter
@@ -112,7 +112,7 @@ def sigma3filter(times, og_series, L=5, N=1, min_frac = 0.5):
     for ii in range(N):
 
         # apply an L-point median filter
-        medians = medianfilter(times, filter_series, L=L, min_frac = min_frac)
+        medians = medianfilter(x, filter_series, L=L, min_frac = min_frac)
 
         # find residual of timeseries, and MAD (median absolute deviation)
         residual = abs(medians - filter_series)

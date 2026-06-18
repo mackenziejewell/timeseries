@@ -121,65 +121,47 @@ def loess(y,t,tls,tau):
     return yls, flag
 
 
-def medianfilter(times, og_series, L=5, min_frac = 0.5):
+def medianfilter(x, og_series, L=5, mode="points", min_frac = 0.5):
 
-    """N-point median pass filter of time series.
+    """N-point median pass filter (can be time series).
 
     INPUT: 
-    - times: (M x 1) array of times
+    - x: (M x 1) array of coordinate values, can be timesseries
     - og_series: (M x 1) array of original values
     - L: length of running median window (odd integer of # of points, or timedelta object)
+    - mode: L window specification units
+            either "points" (# points in x array) or "coordinate" (time of distance along x array values)
+            (default: "points")
     - min_frac: minimum fraction of non-nan values required to calculate median
 
     OUTPUT:
     - median_series: (M x 1) array of running-median values
 
     Latest recorded update:
-    11-21-2025
+    05-18-2026
     """
 
-    # convert times to seconds
-    t = seconds_elapsed(times)
+    if mode not in ["points", "coordinate"]:
+        raise ValueError("mode must be 'points' or 'coordinate'")
 
     median_series = np.copy(og_series)
+    n = len(og_series)
 
-    # if L is a timedelta, convert to seconds
-    # find length on either side of running time point to grab
-
-    if isinstance(L, timedelta):
-
-        L = L.total_seconds()
-        w = L/2
-
-        for ii in range(len(og_series)):
-
-            # find median of values in current window
-            window = abs(t-t[ii]) <= w
-
-             # find median, only if at least min_frac of values are non-nan
-            current_vals = og_series[window]
-            if np.sum(np.isfinite(current_vals)) >= min_frac * len(current_vals):
-                median_series[ii] = np.nanmedian(current_vals)
-
-            # otherwise return nan?
-            else:
-                median_series[ii] = np.nan
-
-
-
-    # either fun over window specified as # of points
-    elif type(L) == int:
+    # =========================================================
+    # MODE 1: POINTS (index window)
+    # =========================================================
+    if mode == "points":
 
         # find length on either side of running time point to grab
-        w = int(L-(L+1)/2)
+        w = L // 2
 
-        #  apply local N-point median filter (with special conditions at bounds)    
-        for ii in range(len(og_series)-w):
+        # apply local N-point median filter (with special conditions at bounds)
+        for ii in range(n):
 
             # adjust window at beginning, end of series
             if ii < w: 
                 current_vals = og_series[:ii+w+1]
-            elif ii > len(og_series)-w:
+            elif ii > n-w:
                 current_vals = og_series[ii-w:]
             else:
                 current_vals = og_series[ii-w:ii+w+1]
@@ -192,16 +174,113 @@ def medianfilter(times, og_series, L=5, min_frac = 0.5):
             else:
                 median_series[ii] = np.nan
 
+    # =========================================================
+    # MODE 2: COORDINATE (time OR numeric distance)
+    # =========================================================
+    elif mode == "coordinate":
+
+        x_arr = np.asarray(x)
+
+        # ---- CASE A: datetime-like (time window) ----
+        if np.issubdtype(x_arr.dtype, np.datetime64):
+
+            if not isinstance(L, timedelta):
+                raise ValueError("For datetime x, L must be a timedelta")
+
+            x_sec = seconds_elapsed(x_arr)
+            w = L.total_seconds() / 2
+
+            for ii in range(n):
+
+                window = np.abs(x_sec - x_sec[ii]) <= w
+                current_vals = og_series[window]
+
+                if np.sum(np.isfinite(current_vals)) >= min_frac * len(current_vals):
+                    median_series[ii] = np.nanmedian(current_vals)
+                else:
+                    median_series[ii] = np.nan
+
+        # ---- CASE B: numeric coordinate (depth, distance, etc.) ----
+        else:
+
+            x_arr = x_arr.astype(float)
+
+            if isinstance(L, timedelta):
+                raise ValueError("timedelta L only valid for datetime x")
+
+            w = float(L) / 2
+
+            for ii in range(n):
+
+                window = np.abs(x_arr - x_arr[ii]) <= w
+                current_vals = og_series[window]
+
+                if np.sum(np.isfinite(current_vals)) >= min_frac * len(current_vals):
+                    median_series[ii] = np.nanmedian(current_vals)
+                else:
+                    median_series[ii] = np.nan
+
+    # # if L is a timedelta, convert to seconds
+    # # find length on either side of running time point to grab
+    # if isinstance(L, timedelta):
+
+    #     # convert times to seconds
+    #     x_sec = seconds_elapsed(x)
+
+    #     # L = L.total_seconds()
+    #     w = L.total_seconds()/2
+
+    #     for ii in range(len(og_series)):
+
+    #         # find median of values in current window
+    #         window = abs(x_sec-x_sec[ii]) <= w
+
+    #          # find median, only if at least min_frac of values are non-nan
+    #         current_vals = og_series[window]
+    #         if np.sum(np.isfinite(current_vals)) >= min_frac * len(current_vals):
+    #             median_series[ii] = np.nanmedian(current_vals)
+
+    #         # otherwise return nan?
+    #         else:
+    #             median_series[ii] = np.nan
+
+
+
+    # # either fun over window specified as # of points
+    # else:
+
+    #     # find length on either side of running time point to grab
+    #     w = L // 2
+
+    #     #  apply local N-point median filter (with special conditions at bounds)    
+    #     for ii in range(len(og_series)-w):
+
+    #         # adjust window at beginning, end of series
+    #         if ii < w: 
+    #             current_vals = og_series[:ii+w+1]
+    #         elif ii > len(og_series)-w:
+    #             current_vals = og_series[ii-w:]
+    #         else:
+    #             current_vals = og_series[ii-w:ii+w+1]
+
+    #         # find median, only if at least min_frac of values are non-nan
+    #         if np.sum(np.isfinite(current_vals)) >= min_frac * len(current_vals):
+    #             median_series[ii] = np.nanmedian(current_vals)
+
+    #         # otherwise return nan?
+    #         else:
+    #             median_series[ii] = np.nan
+
 
     return median_series
 
 
-def meanfilter(times, og_series, L=5, min_frac = 0.5):
+def meanfilter(x, og_series, L=5, min_frac = 0.5):
 
-    """N-point mean pass filter of time series.
+    """N-point mean pass filter (can be time series).
 
     INPUT: 
-    - times: (M x 1) array of times
+    - x: (M x 1) array of coordinate values, can be timesseries
     - og_series: (M x 1) array of original values
     - L: length of running mean window (odd integer of # of points, or timedelta object)
     - min_frac: minimum fraction of non-nan values required to calculate mean
@@ -210,11 +289,8 @@ def meanfilter(times, og_series, L=5, min_frac = 0.5):
     - mean_series: (M x 1) array of running-mean values
 
     Latest recorded update:
-    11-21-2025
+    05-18-2026
     """
-
-    # convert times to seconds
-    t = seconds_elapsed(times)
 
     mean_series = np.copy(og_series)
 
@@ -223,13 +299,16 @@ def meanfilter(times, og_series, L=5, min_frac = 0.5):
 
     if isinstance(L, timedelta):
 
+        # convert times to seconds
+        x_sec = seconds_elapsed(x)
+
         L = L.total_seconds()
         w = L/2
 
         for ii in range(len(og_series)):
 
             # find mean of values in current window
-            window = abs(t-t[ii]) <= w
+            window = abs(x_sec-x_sec[ii]) <= w
 
             # find mean, only if at least min_frac of values are non-nan
             current_vals = og_series[window]
@@ -241,10 +320,10 @@ def meanfilter(times, og_series, L=5, min_frac = 0.5):
                 mean_series[ii] = np.nan
 
     # either run over window specified as # of points
-    elif type(L) == int:
+    else:
 
         # find length on either side of running time point to grab
-        w = int(L-(L+1)/2)
+        w = L // 2
 
         # apply local N-point mean filter (with special conditions at bounds)
         for ii in range(len(og_series)-w):
