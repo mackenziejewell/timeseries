@@ -87,14 +87,69 @@ def flag_accelerations(times, u, v, thresh = 0.0002 * units('m/s2')):
     return accel, u_filter, v_filter
 
 
-def sigma3filter(x, og_series, L=5, N=1, min_frac = 0.5):
+def sigmafilter(x, og_series, n_sigma = 3, L=5, mode="points", N=1, min_frac = 0.5):
     
-    """Filter data more than 3 sigma.
+    """Filter data more than n sigma.
 
     INPUT:
     - x: (M x 1) array of coordinate values, can be timeseries
     - og_series: (M x 1) array of original values
-    - L: length of running median window (odd integer of # of points, or timedelta object)
+    - L: window size
+    - mode:
+        "points"      -> window specified by number of points (odd integer)
+        "coordinate"  -> window specified by x-coordinate span
+                        (numeric distance or timedelta)
+    - N: number of iterations to apply filter
+    - min_frac: minimum fraction of non-nan values required to calculate median, 
+    otherwise return nan (default: 0.5)
+
+    OUTPUT:
+    - filter_series: (M x 1) array of filtered values (outliers replaced with nan)
+
+    Latest recorded update:
+    06-23-2026
+
+    """
+    
+    filter_series = np.copy(og_series)
+    record_flags = np.full(len(filter_series), False)
+
+    for ii in range(N):
+
+        # apply an L-point median filter
+        medians = medianfilter(x, filter_series, L=L, mode=mode, min_frac = min_frac)
+
+        # find residual of timeseries, and MAD (median absolute deviation)
+        residual = abs(medians - filter_series)
+       
+        # find mean and standard deviation of residual timeseries
+        mu = np.nanmean(residual)
+        sigma = np.nanstd(residual)
+        flags = np.abs(residual - mu) >= n_sigma * sigma
+
+        # sigma = np.nanstd(residual)
+        # flags = residual >= n_sigma * sigma
+
+        # filter_series[np.isnan(medians)] = np.nan
+        filter_series[flags] = np.nan
+
+        record_flags += flags
+
+    return filter_series, record_flags
+
+def sigma3filter(x, og_series, L=5, mode="points", N=1, min_frac = 0.5):
+    
+    """ NOTE THIS IS NOW A WRAPPER FOR GENERALIZED sigmafilter FUNCTION
+    Filter data more than 3 sigma.
+
+    INPUT:
+    - x: (M x 1) array of coordinate values, can be timeseries
+    - og_series: (M x 1) array of original values
+    - L: window size
+    - mode:
+        "points"      -> window specified by number of points (odd integer)
+        "coordinate"  -> window specified by x-coordinate span
+                        (numeric distance or timedelta)
     - N: number of iterations to apply filter
     - min_frac: minimum fraction of non-nan values required to calculate median, 
     otherwise return nan (default: 0.5)
@@ -107,27 +162,8 @@ def sigma3filter(x, og_series, L=5, N=1, min_frac = 0.5):
 
     """
     
-    filter_series = np.copy(og_series)
-    
-    for ii in range(N):
+    filter_series, record_flags = sigmafilter(x, og_series, 
+                                              n_sigma = 3, 
+                                              L=L, mode=mode, N=N, min_frac = min_frac)
 
-        # apply an L-point median filter
-        medians = medianfilter(x, filter_series, L=L, min_frac = min_frac)
-
-        # find residual of timeseries, and MAD (median absolute deviation)
-        residual = abs(medians - filter_series)
-       
-
-        # find mean and standard deviation of residual timeseries
-        mu = np.nanmean(residual)
-        sigma = np.nanstd(residual)
-        flags = np.abs(residual - mu) >= 3 * sigma
-
-        # sigma = np.nanstd(residual)
-        # flags = residual >= 3 * sigma
-
-        filter_series[np.isnan(medians)] = np.nan
-        filter_series[flags] = np.nan
-
-    
-    return filter_series
+    return filter_series, record_flags

@@ -143,6 +143,12 @@ def medianfilter(x, og_series, L=5, mode="points", min_frac = 0.5):
 
     if mode not in ["points", "coordinate"]:
         raise ValueError("mode must be 'points' or 'coordinate'")
+    
+    if mode == "points":
+        if not isinstance(L, (int, np.integer)):
+            raise TypeError("L must be an integer when mode='points'")
+        if L < 1 or L % 2 == 0:
+            raise ValueError("L must be a positive odd integer")
 
     median_series = np.copy(og_series)
     n = len(og_series)
