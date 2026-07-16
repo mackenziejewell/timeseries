@@ -87,7 +87,7 @@ def flag_accelerations(times, u, v, thresh = 0.0002 * units('m/s2')):
     return accel, u_filter, v_filter
 
 
-def sigmafilter(x, og_series, n_sigma = 3, L=5, mode="points", N=1, min_frac = 0.5):
+def sigmafilter(x, og_series, n_sigma = 3, L=5, mode="points", N=1, min_frac = 0.5, spike_direction = 'both'):
     
     """Filter data more than n sigma.
 
@@ -102,17 +102,20 @@ def sigmafilter(x, og_series, n_sigma = 3, L=5, mode="points", N=1, min_frac = 0
     - N: number of iterations to apply filter
     - min_frac: minimum fraction of non-nan values required to calculate median, 
     otherwise return nan (default: 0.5)
+    - spike_direction: direction of spikes to remove ('positive', 'negative', 'both', default: 'both')
 
     OUTPUT:
     - filter_series: (M x 1) array of filtered values (outliers replaced with nan)
 
     Latest recorded update:
-    06-23-2026
+    07-15-2026
 
     """
     
     filter_series = np.copy(og_series)
     record_flags = np.full(len(filter_series), False)
+
+    assert spike_direction in ['both', 'positive', 'negative']
 
     for ii in range(N):
 
@@ -120,12 +123,23 @@ def sigmafilter(x, og_series, n_sigma = 3, L=5, mode="points", N=1, min_frac = 0
         medians = medianfilter(x, filter_series, L=L, mode=mode, min_frac = min_frac)
 
         # find residual of timeseries, and MAD (median absolute deviation)
-        residual = abs(medians - filter_series)
-       
+        # residual = abs(filter_series - medians)
+
+        residual = filter_series - medians
+
         # find mean and standard deviation of residual timeseries
         mu = np.nanmean(residual)
         sigma = np.nanstd(residual)
-        flags = np.abs(residual - mu) >= n_sigma * sigma
+
+        # flags = np.abs(residual - mu) >= n_sigma * sigma
+
+        if spike_direction == 'both':
+            flags = np.abs(residual - mu) >= n_sigma * sigma
+        elif spike_direction == 'positive':
+            flags = residual - mu >= n_sigma * sigma
+        elif spike_direction == 'negative':
+            flags = residual - mu <= - n_sigma * sigma
+       
 
         # sigma = np.nanstd(residual)
         # flags = residual >= n_sigma * sigma
