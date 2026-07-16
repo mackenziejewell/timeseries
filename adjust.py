@@ -37,43 +37,64 @@ def seconds_elapsed(time, t0 = None):
     return t
 
 
-def linear_interpolate(desired_times, og_times, og_values, max_dt = 1 * units('day')):
+def linear_interpolate(desired_x, og_x, og_values, max_dx = 1 * units('day')):
     
-    """Function to linearly interpolate values to desired times. For now, will not interpolate past nan bounds.
+    """Function to linearly interpolate values to desired x-coords (which could be times). 
+    For now, will not interpolate past nan bounds.
 
 INPUT: 
-- desired_times: (M x 1) array of datetimes to interpolate to
-- og_times: (M x 1) array of original datetimes
+- desired_x: (M x 1) array of x-coords (floats or datetimes) to interpolate to
+- og_x: (M x 1) array of original x-coords (floats or datetimes)
 - og_values: (M x 1) array of original values
-- max_dt: maximum allowed time gap for interpolation (otherwise return nan)
+- max_dx: maximum allowed gap for interpolation x-coords 
+(floats or timedelta like 1 * units('day')), 
+(otherwise return nan)
+
 
 OUTPUT:
 - interp_values: (M x 1) array of interpolated values
-- dt_values: (M x 1) array of time differences used in interpolation
+- dx_values: (M x 1) array of x-coord differences used in interpolation
 
 Latest recorded update:
-03-22-2025
+07-16-2026
     """
+
+    x = np.asarray(og_x)
+    desired = np.asarray(desired_x)
+
+    # determine if x-coordinate is time
+    if np.issubdtype(x.dtype, np.datetime64):
+        x = seconds_elapsed(x)
+        desired = seconds_elapsed(desired)
+
+        if max_dx is not None:
+            max_dx = max_dx.total_seconds()
+    else:
+        x = x.astype(float)
+        desired = desired.astype(float)
+
+        if isinstance(max_dx, timedelta):
+            raise ValueError("timedelta max_dx only valid for datetime coordinates")
 
     # arrays to store interp values
     # and dt values (seconds) used in interp
     interp_values = np.array([])
-    dt_values = np.array([])
+    dx_values = np.array([])
 
     # find first and last non-nan times
-    first_nn = og_times[np.where(np.isfinite(og_values))[0][0]]
-    last_nn = og_times[np.where(np.isfinite(og_values))[0][-1]]
+    first_nn = x[np.where(np.isfinite(og_values))[0][0]]
+    last_nn = x[np.where(np.isfinite(og_values))[0][-1]]
 
-    for time in desired_times:
+    for xxx in desired:
         
         # if time is outside of range of data, just add nans
-        if (time < first_nn) or (time > last_nn):
+        if (xxx < first_nn) or (xxx > last_nn):
             value = np.nan
-            dt_sec = np.nan
+            dx = np.nan
 
         else:
             # look first for exact match
-            match_index = np.where(og_times == time)[0]
+            match_index = np.where(x == xxx)[0]
 
             # used this to debug multiple matches
             if (len(match_index) > 1):
@@ -85,10 +106,10 @@ Latest recorded update:
             elif (len(match_index) == 1):
                 if np.isfinite(og_values[match_index]):
                     value = og_values[match_index]
-                    dt_sec = 0
+                    dx = 0
                 else:
                     value = np.nan
-                    dt_sec = np.nan
+                    dx = np.nan
                     print('transferred nan value over... decide how want to handle this case?????')
 
             # otherwise, interp
@@ -96,39 +117,41 @@ Latest recorded update:
                 value = None
 
                 # find non-nan times before and after values
-                before_indices = np.where(og_times < time)[0]
+                before_indices = np.where(x < xxx)[0]
                 left_index = before_indices[np.isfinite(og_values)[before_indices]][-1]
 
-                after_indices = np.where(og_times > time)[0]
+                after_indices = np.where(x > xxx)[0]
                 right_index = after_indices[np.isfinite(og_values)[after_indices]][0]
                 # left_index = np.where(og_times < time)[0][-1]
                 # right_index = np.where(og_times > time)[0][0]
 
                 # linearly interpolate value across time gap
                 DV = og_values[right_index] - og_values[left_index]
-                DT = og_times[right_index] - og_times[left_index]
+                DX = x[right_index] - x[left_index]
 
                 # estimate new value
-                dt = time - og_times[left_index]
-                dv = DV * (dt/DT)
+                dx = xxx - x[left_index]
+                dv = DV * (dx/DX)
                 value = og_values[left_index] + dv
 
                 # save timestep used in interp
-                dt_sec = dt.total_seconds()
+                # dx = dt.total_seconds()
 
         # save to array
         interp_values = np.append(interp_values, value)
-        dt_values = np.append(dt_values, dt_sec)
+        dx_values = np.append(dx_values, dx)
         
-    # convert max allowed dt to seconds
-    max_dt_sec = max_dt.to('s').magnitude
-    # flag interp values with dt > max_dt_sec
-    interp_values[dt_values > max_dt_sec] = np.nan
+    # flag interp values with dx > max_dx
+    if max_dx is not None:
+        interp_values[dx_values > max_dx] = np.nan
+    # max_dt_sec = max_dt.to('s').magnitude
+    # # flag interp values with dt > max_dt_sec
+    # interp_values[dx_values > max_dx] = np.nan
     
-    return interp_values, dt_values
+    return interp_values, dx_values
 
 
-    return u_fixed, v_fixed
+    # return u_fixed, v_fixed
 
 
 def running_mean(series, length = 3, center = False, min_frac = 0.5, use_median = False):
