@@ -87,9 +87,13 @@ def flag_accelerations(times, u, v, thresh = 0.0002 * units('m/s2')):
     return accel, u_filter, v_filter
 
 
-def sigmafilter(x, og_series, n_sigma = 3, L=5, mode="points", N=1, min_frac = 0.5, spike_direction = 'both'):
+def sigmafilter(x, og_series, n_sigma = 3, L=5, mode="points",
+                 N=1, min_frac = 0.5, spike_direction = 'both' ,
+                 version = 'std'):
     
     """Filter data more than n sigma.
+
+    # refernce: https://dascore.org/recipes/despiking.html
 
     INPUT:
     - x: (M x 1) array of coordinate values, can be timeseries
@@ -103,6 +107,7 @@ def sigmafilter(x, og_series, n_sigma = 3, L=5, mode="points", N=1, min_frac = 0
     - min_frac: minimum fraction of non-nan values required to calculate median, 
     otherwise return nan (default: 0.5)
     - spike_direction: direction of spikes to remove ('positive', 'negative', 'both', default: 'both')
+    - version: method to calculate threshold ('std' or 'mad', default: 'std')
 
     OUTPUT:
     - filter_series: (M x 1) array of filtered values (outliers replaced with nan)
@@ -111,7 +116,7 @@ def sigmafilter(x, og_series, n_sigma = 3, L=5, mode="points", N=1, min_frac = 0
     07-15-2026
 
     """
-    
+
     filter_series = np.copy(og_series)
     record_flags = np.full(len(filter_series), False)
 
@@ -123,23 +128,42 @@ def sigmafilter(x, og_series, n_sigma = 3, L=5, mode="points", N=1, min_frac = 0
         medians = medianfilter(x, filter_series, L=L, mode=mode, min_frac = min_frac)
 
         # find residual of timeseries, and MAD (median absolute deviation)
-        # residual = abs(filter_series - medians)
-
         residual = filter_series - medians
 
-        # find mean and standard deviation of residual timeseries
-        mu = np.nanmean(residual)
-        sigma = np.nanstd(residual)
+        if version == 'mad':
+            # global MAD of residuals
+            residual_med = np.nanmedian(residual)
 
-        # flags = np.abs(residual - mu) >= n_sigma * sigma
+            mad = np.nanmedian(
+                np.abs(residual - residual_med)
+            )
+            # Convert MAD to equivalent sigma
+            sigma = 1.4826 * mad
 
-        if spike_direction == 'both':
+            # prevent zero threshold
+            sigma = max(sigma, 1e-12)
+
+            if spike_direction == 'both':
+                flags = np.abs(residual - residual_med) >= n_sigma * sigma
+            elif spike_direction == 'positive':
+                flags = residual - residual_med >= n_sigma * sigma
+            elif spike_direction == 'negative':
+                flags = residual - residual_med <= -n_sigma * sigma
+
+        elif version == 'std':
+            # find mean and standard deviation of residual timeseries
+            mu = np.nanmean(residual)
+            sigma = np.nanstd(residual)
+
             flags = np.abs(residual - mu) >= n_sigma * sigma
-        elif spike_direction == 'positive':
-            flags = residual - mu >= n_sigma * sigma
-        elif spike_direction == 'negative':
-            flags = residual - mu <= - n_sigma * sigma
-       
+
+            if spike_direction == 'both':
+                flags = np.abs(residual - mu) >= n_sigma * sigma
+            elif spike_direction == 'positive':
+                flags = residual - mu >= n_sigma * sigma
+            elif spike_direction == 'negative':
+                flags = residual - mu <= - n_sigma * sigma
+        
 
         # sigma = np.nanstd(residual)
         # flags = residual >= n_sigma * sigma
